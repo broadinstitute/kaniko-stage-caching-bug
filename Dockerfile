@@ -15,7 +15,7 @@ ARG DIST
 RUN mkdir -p /tmp1
 
 
-FROM base_stage as cached_stage2
+FROM cached_stage as cached_stage2
 
 RUN mkdir -p /tmp2
 
