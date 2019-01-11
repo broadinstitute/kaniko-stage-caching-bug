@@ -1,0 +1,89 @@
+ARG DIST=/opt
+
+## -----------------------
+##   Build dependencies
+
+FROM alpine as build
+
+ARG DIST
+
+RUN apk add \
+      build-base \
+      curl \
+      jq
+
+RUN mkdir -p ${DIST}
+
+WORKDIR /tmp
+
+## -----------------------
+##        IGVTools
+
+FROM build as igvtools
+
+ARG DIST
+
+RUN version=$(curl -s 'https://api.github.com/repos/igvteam/igv/tags' | jq -r '.[0].name') && \
+    version=${version#v} && \
+    curl -s "https://data.broadinstitute.org/igv/projects/downloads/${version%.*}/igvtools_${version}.zip" | \
+    unzip -q -
+
+WORKDIR /tmp/IGVTools
+
+RUN chmod +x igvtools
+RUN mv igvtools lib ${DIST}
+
+## -----------------------
+##        Samtools
+
+FROM build as samtools
+
+ARG DIST
+
+RUN apk add \
+      bzip2-dev \
+      curl-dev \
+      ncurses-dev \
+      xz-dev \
+      zlib-dev
+
+RUN url=$(curl -s 'https://api.github.com/repos/samtools/samtools/releases/latest' | jq -r '.assets[0].browser_download_url') && \
+    curl -sL ${url} | tar xjf - --strip 1
+
+RUN ./configure >/dev/null
+RUN make >/dev/null
+
+RUN mv samtools ${DIST}
+
+## -----------------------
+##       R packages
+
+FROM build as r
+
+ARG DIST
+
+RUN apk add \
+      R-dev \
+      R
+
+ADD scripts/install.R ./
+
+RUN ./install.R
+
+RUN mv /usr/lib/R/library/* ${DIST}
+
+## -----------------------
+##       Final image
+
+FROM python:alpine
+
+ARG DIST
+
+RUN apk add --no-cache \
+      bash \
+      openjdk8-jre \
+      R
+
+ENV PATH=${PATH}:${DIST}
+
+WORKDIR ${DIST}
