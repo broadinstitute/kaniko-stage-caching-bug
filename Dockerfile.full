@@ -87,3 +87,7 @@ RUN apk add --no-cache \
 ENV PATH=${PATH}:${DIST}
 
 WORKDIR ${DIST}
+
+COPY --from=igvtools ${DIST} ./
+COPY --from=samtools ${DIST} ./
+COPY --from=r ${DIST} /usr/lib/R/library/
